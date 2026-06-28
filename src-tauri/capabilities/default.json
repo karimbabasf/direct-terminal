@@ -9,7 +9,7 @@
     {
       "identifier": "http:default",
       "allow": [
-        { "url": "https://api.binance.com/*" },
+        { "url": "https://api.binance.us/*" },
         { "url": "https://api.bybit.com/*" },
         { "url": "https://www.okx.com/*" },
         { "url": "https://api.exchange.coinbase.com/*" },

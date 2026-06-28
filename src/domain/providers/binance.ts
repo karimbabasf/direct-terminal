@@ -29,7 +29,7 @@ export const binanceCandleProvider: CandleProvider = {
   async fetchCandlePage(req: CandlePageRequest, signal: AbortSignal): Promise<Candle[]> {
     const interval = INTERVAL[req.timeframe];
     if (!interval) return [];
-    const url = new URL("https://api.binance.com/api/v3/klines");
+    const url = new URL("https://api.binance.us/api/v3/klines");
     url.searchParams.set("symbol", `${req.base}${req.quote}`);
     url.searchParams.set("interval", interval);
     url.searchParams.set("limit", String(Math.min(req.limit, 1000)));

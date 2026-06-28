@@ -81,7 +81,7 @@ interface CandleProvider {
 
 | Venue | Endpoint | Page cap | Interval encoding | Backward cursor | Order | CORS |
 |-------|----------|----------|-------------------|-----------------|-------|------|
-| Binance | `api.binance.com/api/v3/klines` | 1000 | `1s,1m,5m,1h,4h,1d` | `endTime` (ms) | asc | ✅ |
+| Binance.US | `api.binance.us/api/v3/klines` | 1000 | `1s,1m,5m,1h,4h,1d` | `endTime` (ms) | asc | ✅ |
 | Bybit | `api.bybit.com/v5/market/kline?category=spot` | 1000 | minutes `1,5,60,240`, `D` | `end` (ms) | desc | ✅ |
 | OKX | `okx.com/api/v5/market/(history-)candles` | 300 | `1m,5m,1H,4H,1D` | `after` (ms) | desc | ✅ |
 | Coinbase | `api.exchange.coinbase.com/products/{p}/candles` | 300 | `granularity` sec | `start`/`end` (ISO) | desc | ✅ |
