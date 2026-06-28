@@ -556,9 +556,10 @@ select {
   width: 100%;
   height: 100%;
   touch-action: none;
+  cursor: crosshair;
 }
 
-.drawing-layer.passive { pointer-events: none; }
+.drawing-layer.passive { pointer-events: none; cursor: default; }
 
 .drawing-line {
   stroke: var(--cyan);

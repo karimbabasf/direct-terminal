@@ -6,15 +6,23 @@ import {
   HistogramSeries,
   createChart,
   type CandlestickData,
+  type Coordinate,
   type HistogramData,
   type IChartApi,
   type ISeriesApi,
+  type Logical,
   type LogicalRange,
   type MouseEventParams,
   type UTCTimestamp,
 } from "lightweight-charts";
 import type { Candle, FeedState } from "../domain/types";
 import { classifyChartUpdate } from "./chartUpdate";
+import {
+  deriveDrawingScale,
+  logicalFromTime,
+  timeFromLogical,
+  type DrawingScale,
+} from "./drawingScale";
 import { formatDuration, formatPrice } from "../utils/format";
 
 export type DrawingMode = "cursor" | "trend" | "horizontal" | "measure";
@@ -273,6 +281,13 @@ export function TradingChart({
     onDrawingCountChange(drawings.length);
   }, [drawings.length, onDrawingCountChange]);
 
+  // Linear time<->logical model so drawings can be placed (and stay anchored)
+  // anywhere — including the whitespace past the last/first candle.
+  const drawScale = useMemo<DrawingScale | null>(
+    () => deriveDrawingScale(candleData.map((bar) => bar.time as number)),
+    [candleData],
+  );
+
   const hudBar = hovered ?? (candleData.length ? candleData[candleData.length - 1] : null);
 
   return (
@@ -284,6 +299,7 @@ export function TradingChart({
           bundle={bundle}
           drawings={drawings}
           mode={drawingMode}
+          scale={drawScale}
           onDrawingsChange={setDrawings}
         />
       ) : null}
@@ -304,6 +320,7 @@ type DrawingLayerProps = {
   bundle: ChartBundle;
   mode: DrawingMode;
   drawings: Drawing[];
+  scale: DrawingScale | null;
   onDrawingsChange: (drawings: Drawing[]) => void;
 };
 
@@ -311,6 +328,7 @@ function DrawingLayer({
   bundle,
   mode,
   drawings,
+  scale,
   onDrawingsChange,
 }: DrawingLayerProps) {
   const [draft, setDraft] = useState<LineDrawing | null>(null);
@@ -339,15 +357,15 @@ function DrawingLayer({
 
   const pointerToAnchor = (event: PointerEvent<SVGSVGElement>) => {
     const point = pointerToLocal(event);
-    const rawTime = bundle.chart.timeScale().coordinateToTime(point.x);
     const price = bundle.series.coordinateToPrice(point.y);
-    if (typeof rawTime !== "number" || price === null) {
+    if (price === null) {
       return null;
     }
-    return {
-      time: rawTime as UTCTimestamp,
-      price,
-    };
+    const time = localXToTime(bundle, point.x, scale);
+    if (time === null) {
+      return null;
+    }
+    return { time, price };
   };
 
   const pointerToPrice = (event: PointerEvent<SVGSVGElement>) => {
@@ -399,8 +417,8 @@ function DrawingLayer({
       return;
     }
     event.currentTarget.releasePointerCapture(event.pointerId);
-    const start = toCoordinate(bundle, draft.a);
-    const end = toCoordinate(bundle, draft.b);
+    const start = toCoordinate(bundle, draft.a, scale);
+    const end = toCoordinate(bundle, draft.b, scale);
     setDraft(null);
     if (!start || !end || distance(start, end) < 8) {
       return;
@@ -411,9 +429,9 @@ function DrawingLayer({
   const renderedDrawings = useMemo(
     () =>
       [...drawings, ...(draft ? [draft] : [])].map((drawing) =>
-        renderDrawing(drawing, bundle, size),
+        renderDrawing(drawing, bundle, size, scale),
       ),
-    [bundle, drawings, draft, size, version],
+    [bundle, drawings, draft, size, version, scale],
   );
 
   return (
@@ -438,13 +456,48 @@ function pointerToLocal(event: PointerEvent<SVGSVGElement>) {
   };
 }
 
-function toCoordinate(bundle: ChartBundle, anchor: Anchor) {
-  const x = bundle.chart.timeScale().timeToCoordinate(anchor.time);
+// Pointer x -> absolute time. Inside the data range lightweight-charts answers
+// directly; out in the whitespace it returns null, so we read the logical
+// coordinate (which extends past the candles) and extrapolate via the scale.
+function localXToTime(
+  bundle: ChartBundle,
+  x: number,
+  scale: DrawingScale | null,
+): UTCTimestamp | null {
+  const timeScale = bundle.chart.timeScale();
+  const time = timeScale.coordinateToTime(x);
+  if (typeof time === "number") {
+    return time as UTCTimestamp;
+  }
+  if (!scale) {
+    return null;
+  }
+  const logical = timeScale.coordinateToLogical(x as Coordinate);
+  if (logical === null) {
+    return null;
+  }
+  return timeFromLogical(scale, logical as number) as UTCTimestamp;
+}
+
+// Anchor (absolute time + price) -> pixel coordinate. Mirror of localXToTime:
+// fall back to the logical axis when the time sits beyond the plotted bars.
+function toCoordinate(bundle: ChartBundle, anchor: Anchor, scale: DrawingScale | null) {
+  const timeScale = bundle.chart.timeScale();
+  let x = timeScale.timeToCoordinate(anchor.time);
+  if (x === null && scale) {
+    const logical = logicalFromTime(scale, anchor.time);
+    x = timeScale.logicalToCoordinate(logical as Logical);
+  }
   const y = bundle.series.priceToCoordinate(anchor.price);
   return x === null || y === null ? null : { x, y };
 }
 
-function renderDrawing(drawing: Drawing, bundle: ChartBundle, size: Size) {
+function renderDrawing(
+  drawing: Drawing,
+  bundle: ChartBundle,
+  size: Size,
+  scale: DrawingScale | null,
+) {
   if (drawing.kind === "horizontal") {
     const y = bundle.series.priceToCoordinate(drawing.price);
     if (y === null) {
@@ -460,8 +513,8 @@ function renderDrawing(drawing: Drawing, bundle: ChartBundle, size: Size) {
     );
   }
 
-  const a = toCoordinate(bundle, drawing.a);
-  const b = toCoordinate(bundle, drawing.b);
+  const a = toCoordinate(bundle, drawing.a, scale);
+  const b = toCoordinate(bundle, drawing.b, scale);
   if (!a || !b) {
     return null;
   }
