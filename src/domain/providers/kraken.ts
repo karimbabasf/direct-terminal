@@ -2,7 +2,8 @@ import type { Asset, Candle, Quote, Timeframe } from "../types";
 import { httpGetJson } from "../http";
 import { num } from "./util";
 import { mergeDedupeSort } from "../paginate";
-import type { CandleProvider, CandlePageRequest } from "./types";
+import { parseKrakenTrades } from "./trades";
+import type { CandleProvider, CandlePageRequest, TradeBatch } from "./types";
 
 const INTERVAL: Partial<Record<Timeframe, string>> = {
   "1m": "1", "5m": "5", "15m": "15", "30m": "30", "1h": "60", "4h": "240", "1d": "1440",
@@ -45,5 +46,15 @@ export const krakenCandleProvider: CandleProvider = {
     url.searchParams.set("interval", interval);
     const payload = await httpGetJson<unknown>(url.toString(), signal);
     return parseKrakenOhlc(payload);
+  },
+  async fetchTrades(base, quote, cursor, signal): Promise<TradeBatch> {
+    // Kraken's `since` is forward-only, so there is no backward pagination:
+    // a single recent batch seeds the chart, then live trades take over.
+    if (cursor !== null) return { trades: [], cursor: null };
+    const url = new URL("https://api.kraken.com/0/public/Trades");
+    url.searchParams.set("pair", krakenPair(base, quote));
+    const payload = await httpGetJson<unknown>(url.toString(), signal);
+    const { trades } = parseKrakenTrades(payload, base, quote);
+    return { trades, cursor: null };
   },
 };

@@ -15,9 +15,9 @@ import { useOrderBook } from "./hooks/useOrderBook";
 
 function App() {
   const [selection, setSelection] = useState<MarketSelection>({
-    exchange: "binance",
+    exchange: "coinbase",
     base: "BTC",
-    quote: "USDT",
+    quote: "USD",
   });
   const [timeframe, setTimeframe] = useState<Timeframe>("1m");
   const [drawingMode, setDrawingMode] = useState<DrawingMode>("cursor");

@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { applyTradeToCandles, getTimeframeMs } from "../domain/candles";
+import {
+  advanceCandles,
+  applyTradeToCandles,
+  getTimeframeMs,
+  isSecondsTimeframe,
+  tradesToCandles,
+} from "../domain/candles";
 import {
   EXCHANGE_META,
   buildExchangeFeed,
@@ -8,12 +14,22 @@ import {
   type MarketSelection,
 } from "../domain/exchanges";
 import { getCandleProvider } from "../domain/providers";
+import { fetchTradeHistory } from "../domain/providers/trades";
 import { fetchHistoryWindow, prependCandles } from "../domain/paginate";
 import type { Candle, FeedState, Timeframe, TradeTick } from "../domain/types";
 
 // Bars fetched up-front for a fast, full first paint. Scroll-back extends toward MAX.
 const INITIAL_TARGET = 2000;
 const MAX_CANDLES = 12000;
+
+// Seconds frames have no sub-minute klines anywhere, so they are seeded from the
+// trade feed. Keep the seed shallow for a fast first paint; carry-forward then
+// keeps the chart continuous and live without further fetching.
+const SECONDS_SEED_MAX_PAGES = 4;
+const SECONDS_SEED_TARGET_TRADES = 4000;
+// Cadence at which quiet seconds get a flat carry-forward candle so the chart
+// keeps moving 24/7 even when no trades print.
+const CARRY_FORWARD_TICK_MS = 250;
 
 export type FeedTelemetry = {
   state: FeedState;
@@ -82,6 +98,58 @@ export function useMarketFeed(
     setHistoryExhausted(false);
 
     const venue = EXCHANGE_META[selection.exchange].name;
+    const intervalMs = getTimeframeMs(timeframe);
+
+    // Seconds frames: no exchange serves sub-minute klines, so seed the chart by
+    // aggregating recent trades client-side, then let carry-forward run it live.
+    if (isSecondsTimeframe(timeframe)) {
+      // The seed is a recent window only; scroll-back beyond it isn't supported
+      // (trade endpoints can't deep-paginate sub-minute history cheaply).
+      exhaustedRef.current = true;
+      setHistoryExhausted(true);
+
+      if (!provider.fetchTrades) {
+        setLoadingHistory(false);
+        setHistoryNote(`${timeframe} builds live from ${venue} trades.`);
+        return () => controller.abort();
+      }
+
+      setLoadingHistory(true);
+      setHistoryNote(`Seeding ${venue} ${timeframe} from trades…`);
+      fetchTradeHistory(
+        provider,
+        selection.base,
+        selection.quote,
+        { maxPages: SECONDS_SEED_MAX_PAGES, targetTrades: SECONDS_SEED_TARGET_TRADES },
+        controller.signal,
+      )
+        .then((trades) => {
+          if (controller.signal.aborted) return;
+          const seeded = advanceCandles(
+            tradesToCandles(trades, intervalMs),
+            intervalMs,
+            Date.now(),
+          );
+          setCandles(seeded);
+          setHistoryNote(
+            seeded.length
+              ? `${seeded.length.toLocaleString()} ${venue} ${timeframe} bars · live`
+              : `No recent ${venue} trades; ${timeframe} builds live.`,
+          );
+        })
+        .catch((historyError: unknown) => {
+          if (controller.signal.aborted) return;
+          setHistoryNote(
+            historyError instanceof Error
+              ? `${venue} ${timeframe} seed failed: ${historyError.message}`
+              : `${venue} ${timeframe} seed unavailable; building live.`,
+          );
+        })
+        .finally(() => {
+          if (!controller.signal.aborted) setLoadingHistory(false);
+        });
+      return () => controller.abort();
+    }
 
     if (!provider.supports(timeframe)) {
       exhaustedRef.current = true;
@@ -256,10 +324,21 @@ export function useMarketFeed(
       }
     }, 1_000);
 
+    // Seconds frames: advance the series over wall-clock time so quiet intervals
+    // still produce flat carry-forward candles — the chart never stalls between
+    // trades. advanceCandles returns the same array when nothing elapsed, so
+    // React skips the render and this stays cheap.
+    const carryForward = isSecondsTimeframe(timeframe)
+      ? window.setInterval(() => {
+          setCandles((current) => advanceCandles(current, intervalMs, Date.now()));
+        }, CARRY_FORWARD_TICK_MS)
+      : null;
+
     return () => {
       cancelled = true;
       window.clearInterval(tpsInterval);
       window.clearInterval(staleInterval);
+      if (carryForward !== null) window.clearInterval(carryForward);
       if (frameRef.current !== null) window.cancelAnimationFrame(frameRef.current);
       socket.close();
     };
