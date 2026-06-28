@@ -6,7 +6,7 @@ import { TimeframeBar } from "./components/TimeframeBar";
 import { ToolRail } from "./components/ToolRail";
 import { TradeTape } from "./components/TradeTape";
 import { TradingChart, type DrawingMode } from "./components/TradingChart";
-import type { MarketSelection } from "./domain/exchanges";
+import { marketLabel, type MarketSelection } from "./domain/exchanges";
 import type { Timeframe } from "./domain/types";
 import { useMarketFeed } from "./hooks/useMarketFeed";
 
@@ -56,6 +56,8 @@ function App() {
             loadingHistory={telemetry.loadingHistory}
             onDrawingCountChange={setDrawingCount}
             onLoadOlder={telemetry.loadOlder}
+            symbol={marketLabel(selection)}
+            timeframe={timeframe}
           />
         </section>
 

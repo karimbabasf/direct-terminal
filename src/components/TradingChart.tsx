@@ -10,6 +10,7 @@ import {
   type IChartApi,
   type ISeriesApi,
   type LogicalRange,
+  type MouseEventParams,
   type UTCTimestamp,
 } from "lightweight-charts";
 import type { Candle, FeedState } from "../domain/types";
@@ -25,6 +26,8 @@ type TradingChartProps = {
   onDrawingCountChange: (count: number) => void;
   onLoadOlder?: () => void;
   loadingHistory?: boolean;
+  symbol?: string;
+  timeframe?: string;
 };
 
 type Anchor = {
@@ -66,6 +69,8 @@ export function TradingChart({
   onDrawingCountChange,
   onLoadOlder,
   loadingHistory,
+  symbol,
+  timeframe,
 }: TradingChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
@@ -74,6 +79,7 @@ export function TradingChart({
   const prevRef = useRef<{ len: number; first?: number; last?: number }>({ len: 0 });
   const [bundle, setBundle] = useState<ChartBundle | null>(null);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
+  const [hovered, setHovered] = useState<CandlestickData<UTCTimestamp> | null>(null);
 
   const candleData = useMemo<CandlestickData<UTCTimestamp>[]>(
     () =>
@@ -94,8 +100,8 @@ export function TradingChart({
         value: candle.volume,
         color:
           candle.close >= candle.open
-            ? "rgba(32, 211, 132, 0.36)"
-            : "rgba(255, 84, 92, 0.32)",
+            ? "rgba(34, 227, 154, 0.34)"
+            : "rgba(255, 93, 103, 0.32)",
       })),
     [candles],
   );
@@ -109,21 +115,22 @@ export function TradingChart({
     const chart = createChart(container, {
       autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: "#05070a" },
-        textColor: "#7f8b99",
+        background: { type: ColorType.Solid, color: "rgba(0, 0, 0, 0)" },
+        textColor: "#8a97a6",
         fontFamily:
-          "Aptos, 'SF Pro Display', 'Segoe UI Variable', 'Helvetica Neue', sans-serif",
+          "'SF Pro Display', -apple-system, 'Segoe UI Variable', 'Helvetica Neue', sans-serif",
+        attributionLogo: false,
       },
       grid: {
-        vertLines: { color: "rgba(92, 110, 125, 0.16)" },
-        horzLines: { color: "rgba(92, 110, 125, 0.16)" },
+        vertLines: { color: "rgba(150, 172, 194, 0.05)" },
+        horzLines: { color: "rgba(150, 172, 194, 0.05)" },
       },
       rightPriceScale: {
-        borderColor: "rgba(137, 151, 166, 0.22)",
+        borderColor: "rgba(150, 172, 194, 0.12)",
         scaleMargins: { top: 0.12, bottom: 0.22 },
       },
       timeScale: {
-        borderColor: "rgba(137, 151, 166, 0.22)",
+        borderColor: "rgba(150, 172, 194, 0.12)",
         timeVisible: true,
         secondsVisible: true,
         rightOffset: 8,
@@ -131,26 +138,20 @@ export function TradingChart({
       },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: {
-          color: "rgba(224, 235, 255, 0.42)",
-          labelBackgroundColor: "#d7e04f",
-        },
-        horzLine: {
-          color: "rgba(224, 235, 255, 0.42)",
-          labelBackgroundColor: "#d7e04f",
-        },
+        vertLine: { color: "rgba(224, 235, 255, 0.4)", labelBackgroundColor: "#5fd7ff" },
+        horzLine: { color: "rgba(224, 235, 255, 0.4)", labelBackgroundColor: "#d7e04f" },
       },
       handleScale: true,
       handleScroll: true,
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
-      upColor: "#20d384",
-      downColor: "#ff545c",
-      borderUpColor: "#20d384",
-      borderDownColor: "#ff545c",
-      wickUpColor: "#20d384",
-      wickDownColor: "#ff545c",
+      upColor: "#22e39a",
+      downColor: "#ff5d67",
+      borderUpColor: "#22e39a",
+      borderDownColor: "#ff5d67",
+      wickUpColor: "#22e39a",
+      wickDownColor: "#ff5d67",
       priceLineColor: "#d7e04f",
       priceLineWidth: 2,
     });
@@ -250,6 +251,20 @@ export function TradingChart({
     return () => timeScale.unsubscribeVisibleLogicalRangeChange(handler);
   }, [bundle, onLoadOlder]);
 
+  // OHLC heads-up display: track the bar under the crosshair (latest when off-chart).
+  useEffect(() => {
+    if (!bundle) return;
+    const { chart, series } = bundle;
+    const handler = (param: MouseEventParams) => {
+      const bar = param.seriesData.get(series) as
+        | CandlestickData<UTCTimestamp>
+        | undefined;
+      setHovered(bar ?? null);
+    };
+    chart.subscribeCrosshairMove(handler);
+    return () => chart.unsubscribeCrosshairMove(handler);
+  }, [bundle]);
+
   useEffect(() => {
     setDrawings([]);
   }, [clearSignal]);
@@ -258,9 +273,12 @@ export function TradingChart({
     onDrawingCountChange(drawings.length);
   }, [drawings.length, onDrawingCountChange]);
 
+  const hudBar = hovered ?? (candleData.length ? candleData[candleData.length - 1] : null);
+
   return (
     <section className="chart-shell">
       <div className="chart-canvas" ref={containerRef} />
+      {hudBar ? <ChartHud bar={hudBar} symbol={symbol} timeframe={timeframe} /> : null}
       {bundle ? (
         <DrawingLayer
           bundle={bundle}
@@ -477,4 +495,34 @@ function renderDrawing(drawing: Drawing, bundle: ChartBundle, size: Size) {
 
 function distance(a: { x: number; y: number }, b: { x: number; y: number }) {
   return Math.hypot(a.x - b.x, a.y - b.y);
+}
+
+function ChartHud({
+  bar,
+  symbol,
+  timeframe,
+}: {
+  bar: CandlestickData<UTCTimestamp>;
+  symbol?: string;
+  timeframe?: string;
+}) {
+  const change = bar.open ? ((bar.close - bar.open) / bar.open) * 100 : 0;
+  const up = bar.close >= bar.open;
+  return (
+    <div className="chart-hud">
+      <b>
+        {symbol ?? "Market"}
+        {timeframe ? ` · ${timeframe}` : ""}
+      </b>
+      <span className="ohlc">
+        <i>O<b>{formatPrice(bar.open)}</b></i>
+        <i>H<b>{formatPrice(bar.high)}</b></i>
+        <i>L<b>{formatPrice(bar.low)}</b></i>
+        <i>C<b>{formatPrice(bar.close)}</b></i>
+      </span>
+      <span className={up ? "chg up" : "chg down"}>
+        {up ? "▲" : "▼"} {change.toFixed(2)}%
+      </span>
+    </div>
+  );
 }
