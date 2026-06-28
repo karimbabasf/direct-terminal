@@ -1,12 +1,17 @@
 import type { Candle, Timeframe } from "../types";
 import { httpGetJson } from "../http";
 import { num, secFromMs } from "./util";
-import type { CandleProvider, CandlePageRequest } from "./types";
+import { parseBinanceAggTrades } from "./trades";
+import type { CandleProvider, CandlePageRequest, TradeBatch } from "./types";
 
+// Binance.US klines do NOT support sub-minute intervals (1s returns HTTP 400
+// "Invalid interval"). Seconds candles are seeded from aggTrades instead.
 const INTERVAL: Partial<Record<Timeframe, string>> = {
-  "1s": "1s", "1m": "1m", "3m": "3m", "5m": "5m", "15m": "15m",
+  "1m": "1m", "3m": "3m", "5m": "5m", "15m": "15m",
   "30m": "30m", "1h": "1h", "4h": "4h", "1d": "1d",
 };
+
+const TRADE_LIMIT = 1000;
 
 export function parseBinanceKlines(rows: unknown): Candle[] {
   if (!Array.isArray(rows)) return [];

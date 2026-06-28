@@ -14,6 +14,7 @@ import {
   type UTCTimestamp,
 } from "lightweight-charts";
 import type { Candle, FeedState } from "../domain/types";
+import { classifyChartUpdate } from "./chartUpdate";
 import { formatDuration, formatPrice } from "../utils/format";
 
 export type DrawingMode = "cursor" | "trend" | "horizontal" | "measure";
@@ -170,13 +171,10 @@ export function TradingChart({
     volumeSeriesRef.current = volumeSeries;
     setBundle({ chart, series: candleSeries, container });
 
-    const observer = new ResizeObserver(() => {
-      chart.timeScale().fitContent();
-    });
-    observer.observe(container);
+    // autoSize handles canvas resizing without disturbing the logical range,
+    // so the user's zoom/scroll survives window resizes (no fitContent here).
 
     return () => {
-      observer.disconnect();
       chart.remove();
       chartRef.current = null;
       candleSeriesRef.current = null;
@@ -186,58 +184,60 @@ export function TradingChart({
   }, []);
 
   // Render strategy: setData on initial load / prepend (rare), but series.update()
-  // for live tail changes (every frame) so 10k+ candles stay at 60fps.
+  // for live tail changes (every frame) so 10k+ candles stay at 60fps. The live
+  // tail NEVER touches the viewport, so the chart runs nonstop without ever
+  // resetting the user's zoom/scroll — even when many bars appear at once
+  // (gap-fill / carry-forward during quiet seconds).
   useEffect(() => {
     const series = candleSeriesRef.current;
     const volume = volumeSeriesRef.current;
     const chart = chartRef.current;
     if (!series || !volume || !chart) return;
 
-    const prev = prevRef.current;
     const len = candleData.length;
+    const next = {
+      len,
+      first: len ? (candleData[0].time as number) : undefined,
+      last: len ? (candleData[len - 1].time as number) : undefined,
+    };
+    const plan = classifyChartUpdate(prevRef.current, next);
 
-    if (len === 0) {
-      series.setData([]);
-      volume.setData([]);
-      prevRef.current = { len: 0 };
-      return;
-    }
-
-    const first = candleData[0].time as number;
-    const last = candleData[len - 1].time as number;
-
-    const isLiveTail =
-      prev.len > 0 &&
-      first === prev.first &&
-      last >= (prev.last ?? -Infinity) &&
-      (len === prev.len || len === prev.len + 1);
-    const isPrepend =
-      prev.len > 0 && first !== prev.first && last === prev.last && len > prev.len;
-
-    if (isLiveTail) {
-      series.update(candleData[len - 1]);
-      volume.update(volumeData[len - 1]);
-    } else if (isPrepend) {
-      // Keep the user's viewport fixed on the same bars after prepending older ones.
-      const range = chart.timeScale().getVisibleLogicalRange();
-      series.setData(candleData);
-      volume.setData(volumeData);
-      if (range) {
-        const shift = len - prev.len;
-        chart.timeScale().setVisibleLogicalRange({
-          from: range.from + shift,
-          to: range.to + shift,
-        });
+    switch (plan.type) {
+      case "empty":
+        series.setData([]);
+        volume.setData([]);
+        break;
+      case "tail":
+        // Append/replace only the changed tail bars; viewport untouched.
+        for (let i = plan.fromIndex; i < len; i++) {
+          series.update(candleData[i]);
+          volume.update(volumeData[i]);
+        }
+        break;
+      case "prepend": {
+        // Keep the viewport fixed on the same bars after prepending older ones.
+        const range = chart.timeScale().getVisibleLogicalRange();
+        series.setData(candleData);
+        volume.setData(volumeData);
+        if (range) {
+          chart.timeScale().setVisibleLogicalRange({
+            from: range.from + plan.shift,
+            to: range.to + plan.shift,
+          });
+        }
+        break;
       }
-    } else {
-      // Initial load (or full swap): show the most recent ~160 bars, not all 10k.
-      series.setData(candleData);
-      volume.setData(volumeData);
-      const from = Math.max(0, len - 160);
-      chart.timeScale().setVisibleLogicalRange({ from, to: len + 6 });
+      case "reset": {
+        // Initial load (or full swap): show the most recent ~160 bars, not all 10k.
+        series.setData(candleData);
+        volume.setData(volumeData);
+        const from = Math.max(0, len - 160);
+        chart.timeScale().setVisibleLogicalRange({ from, to: len + 6 });
+        break;
+      }
     }
 
-    prevRef.current = { len, first, last };
+    prevRef.current = next;
   }, [candleData, volumeData]);
 
   // TradingView-style scroll-back: when the viewport nears the left edge, load older bars.
