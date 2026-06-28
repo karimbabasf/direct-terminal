@@ -42,4 +42,19 @@ export const binanceCandleProvider: CandleProvider = {
     const rows = await httpGetJson<unknown>(url.toString(), signal);
     return parseBinanceKlines(rows);
   },
+  async fetchTrades(base, quote, cursor, signal): Promise<TradeBatch> {
+    const url = new URL("https://api.binance.us/api/v3/aggTrades");
+    url.searchParams.set("symbol", `${base}${quote}`);
+    url.searchParams.set("limit", String(TRADE_LIMIT));
+    // Backward paging: fetch the window of TRADE_LIMIT ids ending just below
+    // the oldest id we already hold.
+    if (cursor !== null) {
+      url.searchParams.set("fromId", String(Math.max(0, cursor - TRADE_LIMIT)));
+    }
+    const payload = await httpGetJson<unknown>(url.toString(), signal);
+    const { trades, nextCursor } = parseBinanceAggTrades(payload, base, quote);
+    const reachedStart = cursor !== null && cursor - TRADE_LIMIT <= 0;
+    const fullPage = Array.isArray(payload) && payload.length >= TRADE_LIMIT;
+    return { trades, cursor: reachedStart || !fullPage ? null : nextCursor };
+  },
 };

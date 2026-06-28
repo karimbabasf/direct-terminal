@@ -20,9 +20,17 @@ describe("parseBinanceKlines", () => {
 });
 
 describe("binanceCandleProvider", () => {
-  it("supports standard frames but not 5s/15s/30s", () => {
+  it("supports minute+ klines but no seconds intervals", () => {
+    // Binance.US klines reject sub-minute intervals (1s → HTTP 400), so every
+    // seconds frame is seeded from aggTrades, not klines.
     expect(binanceCandleProvider.supports("1m")).toBe(true);
-    expect(binanceCandleProvider.supports("1s")).toBe(true);
+    expect(binanceCandleProvider.supports("1s")).toBe(false);
+    expect(binanceCandleProvider.supports("5s")).toBe(false);
     expect(binanceCandleProvider.supports("15s")).toBe(false);
+    expect(binanceCandleProvider.supports("30s")).toBe(false);
+  });
+
+  it("exposes a trade-backfill path for seconds seeding", () => {
+    expect(typeof binanceCandleProvider.fetchTrades).toBe("function");
   });
 });

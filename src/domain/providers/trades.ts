@@ -1,6 +1,5 @@
 import type { Asset, Quote, TradeTick } from "../types";
 import { num } from "./util";
-import { krakenPair } from "./kraken";
 import type { CandleProvider } from "./types";
 
 export type TradeParse = {
@@ -78,8 +77,6 @@ export function parseKrakenTrades(payload: unknown, base: Asset, quote: Quote): 
   }
   return { trades: ascending(trades), nextCursor: null };
 }
-
-export { krakenPair };
 
 // Walk a provider's trade feed backward, newest batch first, until we have
 // `targetTrades` or the venue runs dry or we hit `maxPages`. Returns all trades

@@ -2,11 +2,14 @@ import type { Candle, Timeframe } from "../types";
 import { httpGetJson } from "../http";
 import { num, secFromMs } from "./util";
 import { mergeDedupeSort } from "../paginate";
-import type { CandleProvider, CandlePageRequest } from "./types";
+import { parseCoinbaseTrades } from "./trades";
+import type { CandleProvider, CandlePageRequest, TradeBatch } from "./types";
 
 const GRANULARITY: Partial<Record<Timeframe, number>> = {
   "1m": 60, "5m": 300, "15m": 900, "1h": 3600, "4h": 21600, "1d": 86400,
 };
+
+const TRADE_LIMIT = 1000;
 
 export function parseCoinbaseCandles(payload: unknown): Candle[] {
   if (!Array.isArray(payload)) return [];
@@ -39,5 +42,17 @@ export const coinbaseCandleProvider: CandleProvider = {
     }
     const payload = await httpGetJson<unknown>(url.toString(), signal);
     return parseCoinbaseCandles(payload);
+  },
+  async fetchTrades(base, quote, cursor, signal): Promise<TradeBatch> {
+    const url = new URL(
+      `https://api.exchange.coinbase.com/products/${base}-${quote}/trades`,
+    );
+    url.searchParams.set("limit", String(TRADE_LIMIT));
+    // `after=<id>` returns trades older than that id (backward in time).
+    if (cursor !== null) url.searchParams.set("after", String(cursor));
+    const payload = await httpGetJson<unknown>(url.toString(), signal);
+    const { trades, nextCursor } = parseCoinbaseTrades(payload, base, quote);
+    const fullPage = Array.isArray(payload) && payload.length >= TRADE_LIMIT;
+    return { trades, cursor: fullPage ? nextCursor : null };
   },
 };
