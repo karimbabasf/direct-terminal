@@ -501,6 +501,24 @@ select {
   text-anchor: middle;
 }
 
+.chart-loading {
+  position: absolute;
+  top: 50%;
+  left: 14px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  font-size: 0.74rem;
+  font-weight: 700;
+  color: var(--cyan);
+  border: 1px solid rgba(95, 215, 255, 0.32);
+  border-radius: 999px;
+  background: rgba(5, 7, 10, 0.82);
+  transform: translateY(-50%);
+}
+
 .chart-empty {
   position: absolute;
   top: 50%;

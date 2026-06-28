@@ -12,11 +12,11 @@ import { useMarketFeed } from "./hooks/useMarketFeed";
 
 function App() {
   const [selection, setSelection] = useState<MarketSelection>({
-    exchange: "coinbase",
-    base: "SOL",
-    quote: "USD",
+    exchange: "binance",
+    base: "BTC",
+    quote: "USDT",
   });
-  const [timeframe, setTimeframe] = useState<Timeframe>("1s");
+  const [timeframe, setTimeframe] = useState<Timeframe>("1m");
   const [drawingMode, setDrawingMode] = useState<DrawingMode>("cursor");
   const [clearSignal, setClearSignal] = useState(0);
   const [drawingCount, setDrawingCount] = useState(0);
@@ -53,7 +53,9 @@ function App() {
             clearSignal={clearSignal}
             drawingMode={drawingMode}
             feedState={telemetry.state}
+            loadingHistory={telemetry.loadingHistory}
             onDrawingCountChange={setDrawingCount}
+            onLoadOlder={telemetry.loadOlder}
           />
         </section>
 

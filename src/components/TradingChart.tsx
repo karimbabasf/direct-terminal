@@ -9,6 +9,7 @@ import {
   type HistogramData,
   type IChartApi,
   type ISeriesApi,
+  type LogicalRange,
   type UTCTimestamp,
 } from "lightweight-charts";
 import type { Candle, FeedState } from "../domain/types";
@@ -22,6 +23,8 @@ type TradingChartProps = {
   drawingMode: DrawingMode;
   clearSignal: number;
   onDrawingCountChange: (count: number) => void;
+  onLoadOlder?: () => void;
+  loadingHistory?: boolean;
 };
 
 type Anchor = {
@@ -61,12 +64,14 @@ export function TradingChart({
   drawingMode,
   clearSignal,
   onDrawingCountChange,
+  onLoadOlder,
+  loadingHistory,
 }: TradingChartProps) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const candleSeriesRef = useRef<ISeriesApi<"Candlestick"> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<"Histogram"> | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const previousCountRef = useRef(0);
+  const prevRef = useRef<{ len: number; first?: number; last?: number }>({ len: 0 });
   const [bundle, setBundle] = useState<ChartBundle | null>(null);
   const [drawings, setDrawings] = useState<Drawing[]>([]);
 
@@ -179,14 +184,71 @@ export function TradingChart({
     };
   }, []);
 
+  // Render strategy: setData on initial load / prepend (rare), but series.update()
+  // for live tail changes (every frame) so 10k+ candles stay at 60fps.
   useEffect(() => {
-    candleSeriesRef.current?.setData(candleData);
-    volumeSeriesRef.current?.setData(volumeData);
-    if (candleData.length > 4 && previousCountRef.current === 0) {
-      chartRef.current?.timeScale().fitContent();
+    const series = candleSeriesRef.current;
+    const volume = volumeSeriesRef.current;
+    const chart = chartRef.current;
+    if (!series || !volume || !chart) return;
+
+    const prev = prevRef.current;
+    const len = candleData.length;
+
+    if (len === 0) {
+      series.setData([]);
+      volume.setData([]);
+      prevRef.current = { len: 0 };
+      return;
     }
-    previousCountRef.current = candleData.length;
+
+    const first = candleData[0].time as number;
+    const last = candleData[len - 1].time as number;
+
+    const isLiveTail =
+      prev.len > 0 &&
+      first === prev.first &&
+      last >= (prev.last ?? -Infinity) &&
+      (len === prev.len || len === prev.len + 1);
+    const isPrepend =
+      prev.len > 0 && first !== prev.first && last === prev.last && len > prev.len;
+
+    if (isLiveTail) {
+      series.update(candleData[len - 1]);
+      volume.update(volumeData[len - 1]);
+    } else if (isPrepend) {
+      // Keep the user's viewport fixed on the same bars after prepending older ones.
+      const range = chart.timeScale().getVisibleLogicalRange();
+      series.setData(candleData);
+      volume.setData(volumeData);
+      if (range) {
+        const shift = len - prev.len;
+        chart.timeScale().setVisibleLogicalRange({
+          from: range.from + shift,
+          to: range.to + shift,
+        });
+      }
+    } else {
+      // Initial load (or full swap): show the most recent ~160 bars, not all 10k.
+      series.setData(candleData);
+      volume.setData(volumeData);
+      const from = Math.max(0, len - 160);
+      chart.timeScale().setVisibleLogicalRange({ from, to: len + 6 });
+    }
+
+    prevRef.current = { len, first, last };
   }, [candleData, volumeData]);
+
+  // TradingView-style scroll-back: when the viewport nears the left edge, load older bars.
+  useEffect(() => {
+    if (!bundle || !onLoadOlder) return;
+    const timeScale = bundle.chart.timeScale();
+    const handler = (range: LogicalRange | null) => {
+      if (range && range.from < 18) onLoadOlder();
+    };
+    timeScale.subscribeVisibleLogicalRangeChange(handler);
+    return () => timeScale.unsubscribeVisibleLogicalRangeChange(handler);
+  }, [bundle, onLoadOlder]);
 
   useEffect(() => {
     setDrawings([]);
@@ -206,6 +268,9 @@ export function TradingChart({
           mode={drawingMode}
           onDrawingsChange={setDrawings}
         />
+      ) : null}
+      {loadingHistory ? (
+        <div className="chart-loading">Loading history…</div>
       ) : null}
       {candles.length === 0 ? (
         <div className="chart-empty">
