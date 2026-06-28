@@ -107,6 +107,7 @@ button { color: inherit; }
 .terminal-header,
 .market-sidebar,
 .trade-tape,
+.order-book,
 .workspace {
   border: 1px solid var(--brd);
   border-radius: 14px;
@@ -645,6 +646,115 @@ select {
 
 .chart-empty strong { color: var(--lime); }
 
+/* ---- right rail: order book + tape ---- */
+.right-rail {
+  display: grid;
+  grid-template-rows: minmax(0, 1.15fr) minmax(0, 0.85fr);
+  gap: 11px;
+  min-width: 0;
+  min-height: 0;
+}
+
+.order-book {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px;
+  overflow: hidden;
+}
+
+.ob-empty {
+  margin: auto 0;
+  padding: 18px 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-align: center;
+}
+
+.ob-head {
+  display: flex;
+  justify-content: space-between;
+  padding-bottom: 5px;
+  border-bottom: 1px solid var(--line);
+  font-size: 0.6rem;
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+.ob-side {
+  display: flex;
+  flex: 1 1 0;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.ob-side.asks { justify-content: flex-end; }
+.ob-side.bids { justify-content: flex-start; }
+
+.ob-row {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 17px;
+  padding: 0 3px;
+  font-family: var(--mono);
+  font-size: 0.72rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.ob-bar {
+  position: absolute;
+  top: 1px;
+  right: 0;
+  bottom: 1px;
+  z-index: 0;
+  border-radius: 2px;
+}
+
+.ob-row.ask .ob-bar { background: rgba(255, 93, 103, 0.14); }
+.ob-row.bid .ob-bar { background: rgba(34, 227, 154, 0.14); }
+
+.ob-price,
+.ob-size {
+  position: relative;
+  z-index: 1;
+}
+
+.ob-row.ask .ob-price { color: var(--red); }
+.ob-row.bid .ob-price { color: var(--green); }
+.ob-size { color: var(--muted); }
+
+.ob-mid {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 4px 0;
+  padding: 5px 3px;
+  border-top: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+}
+
+.ob-mid strong {
+  font-family: var(--mono);
+  font-size: 0.92rem;
+  font-variant-numeric: tabular-nums;
+  color: var(--lime);
+  text-shadow: 0 0 12px rgba(215, 224, 79, 0.4);
+}
+
+.ob-mid span {
+  font-size: 0.64rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
 /* ---- trade tape ---- */
 .trade-tape {
   display: grid;
@@ -732,6 +842,8 @@ select {
   .workspace { min-height: 620px; }
   .workspace-bar { grid-template-columns: 1fr; }
   .timeframe-bar { grid-template-columns: repeat(6, minmax(44px, 1fr)); }
+  .right-rail { grid-template-rows: auto auto; }
+  .order-book { min-height: 360px; }
   .trade-tape { min-height: 320px; }
 }
 

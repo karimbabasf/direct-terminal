@@ -4,11 +4,14 @@ import { MarketSidebar } from "./components/MarketSidebar";
 import { TerminalHeader } from "./components/TerminalHeader";
 import { TimeframeBar } from "./components/TimeframeBar";
 import { ToolRail } from "./components/ToolRail";
+import { OrderBook } from "./components/OrderBook";
 import { TradeTape } from "./components/TradeTape";
 import { TradingChart, type DrawingMode } from "./components/TradingChart";
 import { marketLabel, type MarketSelection } from "./domain/exchanges";
+import { getOrderBookProvider } from "./domain/orderbook";
 import type { Timeframe } from "./domain/types";
 import { useMarketFeed } from "./hooks/useMarketFeed";
+import { useOrderBook } from "./hooks/useOrderBook";
 
 function App() {
   const [selection, setSelection] = useState<MarketSelection>({
@@ -21,6 +24,8 @@ function App() {
   const [clearSignal, setClearSignal] = useState(0);
   const [drawingCount, setDrawingCount] = useState(0);
   const telemetry = useMarketFeed(selection, timeframe);
+  const orderBook = useOrderBook(selection);
+  const depthAvailable = getOrderBookProvider(selection.exchange) !== undefined;
 
   return (
     <main className="terminal-app">
@@ -61,7 +66,14 @@ function App() {
           />
         </section>
 
-        <TradeTape trades={telemetry.recentTrades} />
+        <aside className="right-rail">
+          <OrderBook
+            available={depthAvailable}
+            book={orderBook.book}
+            status={orderBook.status}
+          />
+          <TradeTape trades={telemetry.recentTrades} />
+        </aside>
       </div>
     </main>
   );
