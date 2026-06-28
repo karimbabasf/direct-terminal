@@ -29,10 +29,10 @@ export const EXCHANGE_META: Record<
   }
 > = {
   binance: {
-    name: "Binance",
-    venue: "Global spot",
-    source: "Public WebSocket trade stream",
-    quality: "Native 1s klines available; trades aggregated locally here.",
+    name: "Binance.US",
+    venue: "US spot",
+    source: "Binance.US REST klines + public trade stream",
+    quality: "Deep 1m+ history via Binance.US klines; 1s candles live-aggregated.",
   },
   coinbase: {
     name: "Coinbase",
@@ -88,7 +88,10 @@ const MARKET_QUOTES: Record<ExchangeId, Record<Asset, Quote[]>> = {
   },
 };
 
-export const EXCHANGES = Object.keys(EXCHANGE_META) as ExchangeId[];
+// Venues surfaced in the UI. Bybit and OKX are fully implemented (see
+// domain/providers/) but are geo-blocked from the US, so they are omitted from
+// the active list. Re-add them here to surface them again.
+export const EXCHANGES = ["binance", "coinbase", "kraken"] as ExchangeId[];
 
 export function getAvailableQuotes(exchange: ExchangeId, base: Asset): Quote[] {
   return MARKET_QUOTES[exchange][base];
@@ -138,7 +141,7 @@ export function buildExchangeFeed(selectionInput: MarketSelection): ExchangeFeed
         label,
         productId,
         symbol,
-        url: `wss://stream.binance.com:9443/ws/${stream}@trade`,
+        url: `wss://stream.binance.us:9443/ws/${stream}@trade`,
         kind: "trade-stream",
         requiresAuth: false,
       };

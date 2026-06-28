@@ -17,7 +17,7 @@ describe("exchange feed configuration", () => {
 
     const feed = buildExchangeFeed(market);
 
-    expect(feed.url).toBe("wss://stream.binance.com:9443/ws/btcusdt@trade");
+    expect(feed.url).toBe("wss://stream.binance.us:9443/ws/btcusdt@trade");
     expect(feed.kind).toBe("trade-stream");
     expect(feed.requiresAuth).toBe(false);
   });

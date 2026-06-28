@@ -81,7 +81,7 @@ interface CandleProvider {
 
 | Venue | Endpoint | Page cap | Interval encoding | Backward cursor | Order | CORS |
 |-------|----------|----------|-------------------|-----------------|-------|------|
-| Binance | `api.binance.com/api/v3/klines` | 1000 | `1s,1m,5m,1h,4h,1d` | `endTime` (ms) | asc | ✅ |
+| Binance.US | `api.binance.us/api/v3/klines` | 1000 | `1s,1m,5m,1h,4h,1d` | `endTime` (ms) | asc | ✅ |
 | Bybit | `api.bybit.com/v5/market/kline?category=spot` | 1000 | minutes `1,5,60,240`, `D` | `end` (ms) | desc | ✅ |
 | OKX | `okx.com/api/v5/market/(history-)candles` | 300 | `1m,5m,1H,4H,1D` | `after` (ms) | desc | ✅ |
 | Coinbase | `api.exchange.coinbase.com/products/{p}/candles` | 300 | `granularity` sec | `start`/`end` (ISO) | desc | ✅ |
@@ -91,6 +91,7 @@ interface CandleProvider {
 - **Page caps differ** → reaching 10k means ~10 requests (Binance/Bybit), ~34 (OKX/Coinbase). The paginator is cap-agnostic.
 - **Kraken is the weak venue**: no true backward pagination + ~720 cap + no CORS. We load what it allows and **clearly label the cap** in the UI. (User accepted lower caps on some venues.)
 - **Ordering normalized** in each provider so the paginator always sees oldest→newest.
+- **US access (2026-06-28):** Bybit (CloudFront country-block) and OKX (US retail restriction) are unreachable from the US. They stay implemented in `providers/` but are dropped from the active venue list (`EXCHANGES`); Binance.US, Coinbase, and Kraken are the active venues.
 
 ### 4.2 CORS — route REST through Tauri
 
