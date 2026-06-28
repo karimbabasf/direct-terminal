@@ -6,17 +6,17 @@ import { TimeframeBar } from "./components/TimeframeBar";
 import { ToolRail } from "./components/ToolRail";
 import { TradeTape } from "./components/TradeTape";
 import { TradingChart, type DrawingMode } from "./components/TradingChart";
-import type { MarketSelection } from "./domain/exchanges";
+import { marketLabel, type MarketSelection } from "./domain/exchanges";
 import type { Timeframe } from "./domain/types";
 import { useMarketFeed } from "./hooks/useMarketFeed";
 
 function App() {
   const [selection, setSelection] = useState<MarketSelection>({
-    exchange: "coinbase",
-    base: "SOL",
-    quote: "USD",
+    exchange: "binance",
+    base: "BTC",
+    quote: "USDT",
   });
-  const [timeframe, setTimeframe] = useState<Timeframe>("1s");
+  const [timeframe, setTimeframe] = useState<Timeframe>("1m");
   const [drawingMode, setDrawingMode] = useState<DrawingMode>("cursor");
   const [clearSignal, setClearSignal] = useState(0);
   const [drawingCount, setDrawingCount] = useState(0);
@@ -53,7 +53,11 @@ function App() {
             clearSignal={clearSignal}
             drawingMode={drawingMode}
             feedState={telemetry.state}
+            loadingHistory={telemetry.loadingHistory}
             onDrawingCountChange={setDrawingCount}
+            onLoadOlder={telemetry.loadOlder}
+            symbol={marketLabel(selection)}
+            timeframe={timeframe}
           />
         </section>
 

@@ -19,11 +19,13 @@ export function getTimeframeMs(timeframe: Timeframe): number {
   return TIMEFRAME_MS[timeframe];
 }
 
+// Soft ceiling purely for memory safety with deep history + live updates.
+// History (10k+) must never be truncated by live aggregation, so this is high.
 export function applyTradeToCandles(
   candles: Candle[],
   trade: TradeTick,
   timeframeMs: number,
-  maxCandles = 720,
+  maxCandles = 60_000,
 ): Candle[] {
   const bucketStartMs = Math.floor(trade.timestamp / timeframeMs) * timeframeMs;
   const bucketSeconds = Math.floor(bucketStartMs / 1_000) as Candle["time"];
