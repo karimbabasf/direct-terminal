@@ -5,6 +5,16 @@
   "windows": ["main"],
   "permissions": [
     "core:default",
-    "opener:default"
+    "opener:default",
+    {
+      "identifier": "http:default",
+      "allow": [
+        { "url": "https://api.binance.com/*" },
+        { "url": "https://api.bybit.com/*" },
+        { "url": "https://www.okx.com/*" },
+        { "url": "https://api.exchange.coinbase.com/*" },
+        { "url": "https://api.kraken.com/*" }
+      ]
+    }
   ]
 }

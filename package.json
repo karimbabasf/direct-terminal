@@ -13,6 +13,7 @@
   },
   "dependencies": {
     "@tauri-apps/api": "^2",
+    "@tauri-apps/plugin-http": "^2.5.9",
     "@tauri-apps/plugin-opener": "^2",
     "lightweight-charts": "^5.2.0",
     "lucide-react": "^1.21.0",
@@ -30,5 +31,10 @@
     "typescript": "~5.8.3",
     "vite": "^7.0.4",
     "vitest": "^4.1.9"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild"
+    ]
   }
 }
