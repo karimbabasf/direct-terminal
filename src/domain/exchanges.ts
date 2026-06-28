@@ -88,7 +88,10 @@ const MARKET_QUOTES: Record<ExchangeId, Record<Asset, Quote[]>> = {
   },
 };
 
-export const EXCHANGES = Object.keys(EXCHANGE_META) as ExchangeId[];
+// Venues surfaced in the UI. Bybit and OKX are fully implemented (see
+// domain/providers/) but are geo-blocked from the US, so they are omitted from
+// the active list. Re-add them here to surface them again.
+export const EXCHANGES = ["binance", "coinbase", "kraken"] as ExchangeId[];
 
 export function getAvailableQuotes(exchange: ExchangeId, base: Asset): Quote[] {
   return MARKET_QUOTES[exchange][base];

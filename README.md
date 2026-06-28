@@ -14,7 +14,9 @@ A liquid-glass desktop crypto terminal — deep multi-exchange candle history, T
 
 ## What it is
 
-Direct Terminal connects **directly** to public exchange APIs (no middle-man backend) and renders a fast, dense, beautiful market view across **five venues** — Binance, Coinbase, Kraken, OKX, and Bybit. Candles stream live from each exchange's trade feed and are backfilled with deep REST history so you open to a *full* chart, not an empty one.
+Direct Terminal connects **directly** to public exchange APIs (no middle-man backend) and renders a fast, dense, beautiful market view across the **US-accessible venues** — Binance.US, Coinbase, and Kraken. Candles stream live from each exchange's trade feed and are backfilled with deep REST history so you open to a *full* chart, not an empty one.
+
+> Bybit and OKX providers are implemented in `src/domain/providers/` too, but both are geo-restricted in the US (Bybit returns a CloudFront country block; OKX restricts US retail), so they're kept off the active venue list.
 
 > **Status:** active development. The redesign is shipping in phases (see [Roadmap](#roadmap)). The original app is a working dark terminal; the liquid-glass overhaul, deep history, infinite scroll, and order book land branch by branch.
 
@@ -22,7 +24,7 @@ Direct Terminal connects **directly** to public exchange APIs (no middle-man bac
 
 **Now**
 - 📈 Candlestick + volume chart powered by `lightweight-charts`
-- 🔌 Direct WebSocket trade streams from 5 exchanges
+- 🔌 Direct WebSocket trade streams (Binance.US, Coinbase, Kraken)
 - 🧮 Live trade → candle aggregation across 12 timeframes (1s → 1d)
 - ✏️ On-chart drawing tools (trend line, horizontal, measure)
 - 📼 Live trade tape

@@ -91,6 +91,7 @@ interface CandleProvider {
 - **Page caps differ** → reaching 10k means ~10 requests (Binance/Bybit), ~34 (OKX/Coinbase). The paginator is cap-agnostic.
 - **Kraken is the weak venue**: no true backward pagination + ~720 cap + no CORS. We load what it allows and **clearly label the cap** in the UI. (User accepted lower caps on some venues.)
 - **Ordering normalized** in each provider so the paginator always sees oldest→newest.
+- **US access (2026-06-28):** Bybit (CloudFront country-block) and OKX (US retail restriction) are unreachable from the US. They stay implemented in `providers/` but are dropped from the active venue list (`EXCHANGES`); Binance.US, Coinbase, and Kraken are the active venues.
 
 ### 4.2 CORS — route REST through Tauri
 
